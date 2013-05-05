@@ -1,0 +1,11 @@
+app.ilk
+*.pdb
+/doc/*.sdf
+/doc/*.suo
+/doc/*.filters
+/doc/*.user
+/doc/Debug
+/doc/ipch
+/doc/Release
+/bin/win/*.log
+/doc/*.opensdf
