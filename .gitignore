@@ -9,3 +9,4 @@ app.ilk
 /doc/Release
 /bin/win/*.log
 /doc/*.opensdf
+/doc/debug.log

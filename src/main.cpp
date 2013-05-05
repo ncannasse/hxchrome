@@ -3,10 +3,15 @@
 #undef UNICODE
 #include <Windows.h>
 #include <sstream>
+#include <fstream>
 #include "include/cef_app.h"
 #include "include/cef_client.h"
 
+class ClientHandler;
+
 static CefRefPtr<CefBrowser> BROWSER = NULL;
+static CefRefPtr<ClientHandler> CLIENT = NULL;
+static CefRefPtr<CefV8Handler> EXT = NULL;
 
 class ClientHandler : public CefClient,
                       public CefLifeSpanHandler,
@@ -105,15 +110,40 @@ public:
 	CefString basePath;
 };
 
-static CefRefPtr<ClientHandler> CLIENT = NULL;
-
-const char *start() {
-	CefSettings settings;
-	CefRefPtr<CefApp> app = NULL;
-	if( !CefInitialize(settings,app) )
-		return "Failed to init CEF";
-	return NULL;
+std::string get_file_contents(const char *filename, int &err) {
+	std::ifstream in(filename, std::ios::in | std::ios::binary);
+	if( in ) {
+		err = 0;
+		std::string contents;
+		in.seekg(0, std::ios::end);
+		contents.resize((int)in.tellg());
+		in.seekg(0, std::ios::beg);
+		in.read(&contents[0], contents.size());
+		in.close();
+		return(contents);
+	}
+	err = 1;
+	return "";
 }
+
+class ExtHandler : public CefV8Handler {
+
+	IMPLEMENT_REFCOUNTING(ExtHandler);
+
+	virtual bool Execute(const CefString& name, CefRefPtr<CefV8Value> object, const CefV8ValueList& arguments, CefRefPtr<CefV8Value>& retval, CefString& exception) OVERRIDE {
+		if( name == "readFile" && arguments.size() == 1 && arguments[0]->IsString() ) {
+			std::string fileName = arguments[0]->GetStringValue();
+			int err;
+			retval = CefV8Value::CreateString(get_file_contents(fileName.c_str(),err));
+			if( err )
+				exception = "Failed to read file " + fileName;
+			return true;
+		}
+		std::string exc("Unknown native method ");
+		exception = exc + name.ToString();
+		return true;
+	}
+};
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch( msg ) {
@@ -174,9 +204,20 @@ int CALLBACK WinMain(
   _In_  int nCmdShow
 ) {
 
-	const char *err = start();
-	if( err != NULL )
-		MessageBox(NULL,err,"Error",MB_ICONERROR);
+	CefSettings settings;
+	CefRefPtr<CefApp> app = NULL;
+	if( !CefInitialize(settings,app) ) {
+		MessageBox(NULL,"Failed to INIT CEF","Error",MB_ICONERROR);
+		return 1;
+	}
+
+	char cpath[MAX_PATH];
+	int err;
+	GetModuleFileName(NULL,cpath,MAX_PATH);
+	char *slash = strrchr(cpath,'\\') + 1;
+	strcpy(slash,"boot.js");
+	EXT = new ExtHandler();
+	CefRegisterExtension("v8/hxchrome",get_file_contents(cpath,err),EXT);
 
 	WNDCLASSEX wcl;
 	HINSTANCE hinst = GetModuleHandle(NULL);

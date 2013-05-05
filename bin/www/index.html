@@ -4,6 +4,13 @@
 
 <script type="text/javascript">
 	document.write('<h1>Hello World</h1>');
+	var file;
+	try {
+		file = hxchrome.fs.readFile("test.txt");
+	} catch( e ) {
+		file = e;
+	}
+	document.write(file);
 </script>
 
 <img src="haxe.png"/>
